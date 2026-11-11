@@ -1,0 +1,506 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>The Wheel Road</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600..800&family=DM+Sans:wght@400;500;700&family=Source+Serif+4:ital,wght@0,400;0,600;1,400&display=swap">
+<style>
+/* Layout concept: full-screen night world; HUD panels float at the edges; modal cards carry Scripture. */
+:root{
+  --night:#0a1230; --ink:#14204a; --ink2:#1d2d66; --gold:#f4b942; --sky:#9bd8ff;
+  --text:#eaf0ff; --muted:#a8b6dc; --ok:#7ee0a1; --bad:#ff9a8a;
+  --display:'Bricolage Grotesque',system-ui,sans-serif;
+  --body:'DM Sans',system-ui,sans-serif;
+  --serif:'Source Serif 4',Georgia,serif;
+  color-scheme:dark;
+}
+html,body{height:100%}
+body{margin:0;background:var(--night);color:var(--text);font-family:var(--body);overflow:hidden;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));
+  -webkit-user-select:none;user-select:none;touch-action:none}
+#stage{position:fixed;inset:0;background:var(--night)}
+#game{position:absolute;inset:0;width:100%;height:100%;display:block}
+.panel{position:fixed;background:rgba(10,18,48,.74);border:1px solid rgba(155,216,255,.25);border-radius:14px;backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px)}
+#hudL{left:max(12px,env(safe-area-inset-left,0px));top:calc(12px + env(safe-area-inset-top,0px));display:flex;gap:10px;align-items:center;padding:8px 14px 8px 8px}
+#wheelCv{width:84px;height:84px;display:block}
+#stats{font-size:13px;line-height:1.55;color:var(--muted)}
+#stats b{color:var(--text);font-family:var(--display);font-size:15px;font-weight:700}
+#compass{left:50%;transform:translateX(-50%);top:calc(12px + env(safe-area-inset-top,0px));display:flex;align-items:center;gap:8px;padding:5px 14px 5px 6px;font-size:13px;color:var(--muted);white-space:nowrap}
+#compassCv{width:44px;height:44px;display:block}
+#hudR{right:max(12px,env(safe-area-inset-right,0px));top:calc(12px + env(safe-area-inset-top,0px));display:flex;flex-direction:column;gap:8px;align-items:flex-end;background:none;border:0;backdrop-filter:none;-webkit-backdrop-filter:none}
+.btnrow{display:flex;gap:6px}
+.ibtn{font:700 13px var(--body);color:var(--text);background:rgba(10,18,48,.74);border:1px solid rgba(155,216,255,.3);border-radius:999px;padding:8px 13px;cursor:pointer;min-height:36px}
+.ibtn:hover{border-color:var(--gold)}
+.ibtn:focus-visible,.btn:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+#miniCv{width:150px;height:115px;display:block;border-radius:12px;border:1px solid rgba(155,216,255,.25);background:rgba(10,18,48,.74)}
+#banner{position:fixed;left:50%;top:22%;transform:translateX(-50%);text-align:center;pointer-events:none;opacity:0;width:min(90vw,640px)}
+#banner b{display:block;font:800 clamp(28px,6vw,52px)/1.05 var(--display);letter-spacing:-.01em;text-shadow:0 2px 24px rgba(0,0,0,.6)}
+#banner span{display:block;margin-top:6px;font-size:clamp(13px,2.4vw,17px);color:var(--gold);letter-spacing:.14em;text-transform:uppercase;font-weight:700}
+#banner.show{animation:bn 3.4s ease forwards}
+@keyframes bn{0%{opacity:0;transform:translate(-50%,8px)}15%{opacity:1;transform:translate(-50%,0)}75%{opacity:1}100%{opacity:0}}
+#prompt{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(26px + env(safe-area-inset-bottom,0px));padding:9px 16px;font-size:15px;font-weight:500;display:none;white-space:nowrap}
+kbd{font:700 12px var(--body);background:var(--gold);color:#1a1530;border-radius:6px;padding:2px 7px;margin-right:6px}
+#toasts{position:fixed;left:max(12px,env(safe-area-inset-left,0px));bottom:calc(86px + env(safe-area-inset-bottom,0px));display:flex;flex-direction:column;gap:8px;width:min(360px,calc(100vw - 32px));pointer-events:none}
+.toast{background:rgba(20,32,74,.94);border:1px solid rgba(244,185,66,.45);border-radius:12px;padding:10px 14px;font-size:14px;line-height:1.45;animation:tin .35s ease}
+.toast.out{opacity:0;transition:opacity .4s}
+.toast b{color:var(--gold)}
+@keyframes tin{from{opacity:0;transform:translateY(8px)}}
+#modal{position:fixed;inset:0;background:rgba(4,8,26,.66);display:flex;align-items:center;justify-content:center;padding:16px;z-index:20}
+#modal[hidden]{display:none}
+#card{width:min(580px,100%);max-height:88vh;overflow:auto;background:linear-gradient(180deg,var(--ink2),var(--ink));border:1px solid rgba(244,185,66,.5);border-radius:20px;padding:24px 24px 20px;box-shadow:0 24px 80px rgba(0,0,0,.55);touch-action:pan-y;-webkit-user-select:text;user-select:text}
+#card.wide{width:min(720px,100%)}
+.kick{font:700 12px var(--body);letter-spacing:.14em;text-transform:uppercase;color:var(--gold)}
+#card h2{font:800 30px/1.1 var(--display);margin:8px 0 12px}
+.verse{font:400 clamp(18px,3.6vw,21px)/1.55 var(--serif);margin:0 0 12px}
+.note{color:var(--muted);font-size:15px;line-height:1.5;margin:0 0 4px}
+.blank{display:inline-block;min-width:92px;border-bottom:2px solid var(--gold);text-align:center;color:var(--gold)}
+.hit{color:var(--gold);font-weight:600}
+.acts{display:flex;flex-wrap:wrap;gap:10px;margin-top:18px}
+.btn{font:700 15px var(--body);border-radius:999px;padding:11px 20px;cursor:pointer;border:1px solid rgba(155,216,255,.4);background:transparent;color:var(--text);min-height:44px}
+.btn.primary{background:var(--gold);color:#1a1530;border-color:var(--gold)}
+.btn.opt{text-align:left;border-radius:14px;width:100%;line-height:1.45;font-weight:500}
+.btn.opt b{display:block;color:var(--gold);font-family:var(--display)}
+.btn:hover{border-color:var(--gold)}
+.talk{display:flex;gap:16px;align-items:flex-start}
+.port{width:92px;height:92px;border-radius:50%;flex:none;border:2px solid var(--gold)}
+.who{font:800 20px var(--display)}
+.say{font-size:17px;line-height:1.55;margin:6px 0 0}
+.jz{margin:16px 0 6px;font:800 17px var(--display);color:var(--sky)}
+.jv{padding:10px 0;border-top:1px solid rgba(155,216,255,.15)}
+.jv .r{font:700 14px var(--display);color:var(--gold)}
+.jv .t{font:400 15px/1.5 var(--serif);color:var(--text)}
+.jv.lock .t{color:var(--muted);font-family:var(--body);font-style:italic}
+.title h1{font:800 clamp(40px,10vw,72px)/.95 var(--display);letter-spacing:-.02em;margin:10px 0 12px}
+.title p.tag{font-size:17px;line-height:1.5;color:var(--text);margin:0 0 6px}
+.small{font-size:12px;color:var(--muted);line-height:1.5;margin-top:16px}
+#touch{display:none}
+.coarse #touch{display:block}
+#joy{position:fixed;left:max(18px,env(safe-area-inset-left,0px));bottom:calc(22px + env(safe-area-inset-bottom,0px));width:128px;height:128px;border-radius:50%;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.22);touch-action:none}
+#knob{position:absolute;left:36px;top:36px;width:56px;height:56px;border-radius:50%;background:rgba(244,185,66,.7)}
+#act{position:fixed;right:max(18px,env(safe-area-inset-right,0px));bottom:calc(36px + env(safe-area-inset-bottom,0px));width:84px;height:84px;border-radius:50%;background:var(--gold);color:#1a1530;font:800 26px var(--display);border:0;touch-action:none}
+.coarse #miniCv{width:110px;height:85px}
+.coarse #prompt{bottom:calc(168px + env(safe-area-inset-bottom,0px))}
+.coarse #toasts{bottom:calc(168px + env(safe-area-inset-bottom,0px))}
+@media (max-width:560px){#compass span{display:none}#stats{font-size:12px}#wheelCv{width:64px;height:64px}}
+@media (prefers-reduced-motion:reduce){#banner.show{animation-duration:.01s}}
+</style>
+
+<div id="stage" class="">
+  <canvas id="game"></canvas>
+  <div id="hudL" class="panel"><canvas id="wheelCv" width="168" height="168"></canvas><div id="stats"></div></div>
+  <div id="compass" class="panel"><canvas id="compassCv" width="88" height="88"></canvas><span id="compassTxt"></span></div>
+  <div id="hudR" class="panel">
+    <div class="btnrow"><button class="ibtn" id="bJournal">Journal</button><button class="ibtn" id="bSound">Sound on</button><button class="ibtn" id="bHelp">Help</button></div>
+    <canvas id="miniCv" width="300" height="230"></canvas>
+  </div>
+  <div id="banner"></div>
+  <div id="prompt" class="panel"></div>
+  <div id="toasts"></div>
+  <div id="touch"><div id="joy"><div id="knob"></div></div><button id="act" aria-label="Interact">A</button></div>
+  <div id="modal" hidden><div id="card" role="dialog" aria-modal="true"></div></div>
+</div>
+<script>
+(function(){
+'use strict';
+const $=s=>document.querySelector(s);
+const W=2600,H=2000,HUB={x:1300,y:1000},TAU=Math.PI*2;
+const ZONES=[
+{id:'word',name:'Drake Campus',spoke:'The Word',x:560,y:460,tint:'90,170,255',ang:-135,fact:'Dawson Trotman came to faith in 1926 through Scripture memory. By 1928 he had put together a list of 85 verses he thought every believer should know.'},
+{id:'witness',name:'DMACC',spoke:'Witnessing',x:2040,y:460,tint:'255,170,90',ang:-45,fact:'The Navigators began in 1933 in Southern California, when lumberyard worker Dawson Trotman taught a Navy sailor named Les Spencer. Soon others joined, until 125 men on that ship were part of it.'},
+{id:'fellowship',name:'Grand View',spoke:'Fellowship',x:2040,y:1540,tint:'200,120,255',ang:45,fact:'In 1968 the Wheel changed: Fellowship became a spoke, and Obedience moved to the rim.'},
+{id:'prayer',name:"Gray’s Lake",spoke:'Prayer',x:560,y:1540,tint:'110,230,190',ang:135,fact:'Dawson drew the Wheel in the 1930s to show a balanced Christian life: Christ at the hub, with the Word, prayer, fellowship and witness as spokes.'}
+];
+const ZB={};ZONES.forEach(z=>ZB[z.id]=z);
+const V=(id,zone,ref,text,key,wrong,note,x,y)=>({id,zone,ref,text,key,wrong,note,x,y});
+const VERSES=[
+V('w1','word','2 Timothy 3:16','All scripture is given by inspiration of God, and is profitable for doctrine, for reproof, for correction, for instruction in righteousness:','inspiration',['revelation','tradition'],'God’s Word is useful for everything: teaching, correcting and training.',560,470),
+V('w2','word','Psalm 119:11','Thy word have I hid in mine heart, that I might not sin against thee.','hid',['kept','sown'],'Memorized Scripture is a guard you carry everywhere.',400,455),
+V('w3','word','Matthew 4:4','But he answered and said, It is written, Man shall not live by bread alone, but by every word that proceedeth out of the mouth of God.','bread',['work','wealth'],'Jesus answered temptation with Scripture. So can you.',720,420),
+V('w4','word','Joshua 1:8','This book of the law shall not depart out of thy mouth; but thou shalt meditate therein day and night, that thou mayest observe to do according to all that is written therein: for then thou shalt make thy way prosperous, and then thou shalt have good success.','meditate',['wander','labour'],'Meditation means turning a verse over until it shapes what you do.',600,650),
+V('p1','prayer','Philippians 4:6','Be careful for nothing; but in every thing by prayer and supplication with thanksgiving let your requests be made known unto God.','thanksgiving',['silence','fasting'],'Swap anxiety for asking, with thanks.',560,1520),
+V('p2','prayer','1 Peter 5:7','Casting all your care upon him; for he careth for you.','Casting',['Hiding','Carrying'],'You can hand God the whole load.',300,1540),
+V('p3','prayer','Jeremiah 33:3','Call unto me, and I will answer thee, and shew thee great and mighty things, which thou knowest not.','answer',['help','find'],'Prayer is a conversation God promises to answer.',740,1640),
+V('p4','prayer','John 15:7','If ye abide in me, and my words abide in you, ye shall ask what ye will, and it shall be done unto you.','ask',['seek','give'],'Staying close to Jesus shapes what we ask for.',470,1840),
+V('f1','fellowship','Hebrews 10:24','And let us consider one another to provoke unto love and to good works:','consider',['forget','judge'],'Faith grows when we push each other toward love and good work.',2040,1560),
+V('f2','fellowship','1 John 1:7','But if we walk in the light, as he is in the light, we have fellowship one with another, and the blood of Jesus Christ his Son cleanseth us from all sin.','fellowship',['friendship','peace'],'Living in the light puts us in real community with each other.',1880,1570),
+V('f3','fellowship','Matthew 18:20','For where two or three are gathered together in my name, there am I in the midst of them.','two',['ten','five'],'Jesus promises to be with even the smallest gathering.',2240,1500),
+V('f4','fellowship','Proverbs 27:17','Iron sharpeneth iron; so a man sharpeneth the countenance of his friend.','countenance',['character','shoulder'],'Good friends make each other sharper.',2000,1750),
+V('t1','witness','Matthew 4:19','And he saith unto them, Follow me, and I will make you fishers of men.','fishers',['shepherds','builders'],'Jesus invited ordinary people into His mission.',2040,480),
+V('t2','witness','Romans 1:16','For I am not ashamed of the gospel of Christ: for it is the power of God unto salvation to every one that believeth; to the Jew first, and also to the Greek.','ashamed',['afraid','proud'],'The gospel is God’s power, so there is no need to be embarrassed.',1880,520),
+V('t3','witness','Acts 1:8','But ye shall receive power, after that the Holy Ghost is come upon you: and ye shall be witnesses unto me both in Jerusalem, and in all Judaea, and in Samaria, and unto the uttermost part of the earth.','witnesses',['teachers','servants'],'The Spirit empowers witnesses, starting right where you are.',2230,360),
+V('t4','witness','2 Timothy 2:2','And the things that thou hast heard of me among many witnesses, the same commit thou to faithful men, who shall be able to teach others also.','faithful',['learned','wealthy'],'Pass it on: invest in people who will invest in others.',2000,650)
+];
+const VB={};VERSES.forEach(v=>VB[v.id]=v);
+const HV={
+way:{ref:'John 14:6',text:'Jesus saith unto him, I am the way, the truth, and the life: no man cometh unto the Father, but by me.'},
+light:{ref:'John 8:12',text:'Then spake Jesus again unto them, saying, I am the light of the world: he that followeth me shall not walk in darkness, but shall have the light of life.',key:'darkness',wrong:['doubt','danger']},
+love:{ref:'John 14:15',text:'If ye love me, keep my commandments.'},
+doers:{ref:'James 1:22',text:'But be ye doers of the word, and not hearers only, deceiving your own selves.'}
+};
+const FRIENDS=[
+{id:'jordan',name:'Jordan',x:520,y:570,zone:'word',look:{skin:'#8d5a3b',shirt:'#6fb4ff',hair:'#1b120d',pants:'#2a3358'},line:'Finals are coming and everyone I know has a different opinion about everything. What can I actually build my life on?',right:'w1',opts:['w1','p1','f3'],thanks:'That is solid ground. I’m going to read some tonight.'},
+{id:'dana',name:'Dana',x:470,y:1650,zone:'prayer',look:{skin:'#e8b894',shirt:'#e9606f',hair:'#5a3220',pants:'#2a3358'},line:'I keep running laps and my worries run right along with me. How do I stop carrying all of this?',right:'p2',opts:['p2','t2','f4'],thanks:'Handing it over. Thank you. I think I can breathe now.'},
+{id:'marcus',name:'Marcus',x:2100,y:1650,zone:'fellowship',look:{skin:'#5e3a28',shirt:'#7ee0a1',hair:'#0f0a08',pants:'#2a3358'},line:'I believe, but I’ve been doing it all by myself. It’s kind of lonely.',right:'f3',opts:['f3','w4','p3'],thanks:'Then let’s meet this week. Even two of us counts.'},
+{id:'priya',name:'Priya',x:2090,y:570,zone:'witness',look:{skin:'#b57a52',shirt:'#c08cf0',hair:'#140c0a',pants:'#2a3358'},line:'Honestly, I’m curious about Jesus. Who is He, really?',right:'way',opts:['way','f4','w2'],thanks:'I want to hear more. Coffee after class?'}
+];
+const EZRA={skin:'#f0c8a4',shirt:'#1d3a8a',cap:'#1d3a8a',glasses:true,emblem:true,pants:'#2b3558',name:'Ezra'};
+const ME={skin:'#c98f66',shirt:'#f4b942',hair:'#2a1b12',pack:true,pants:'#273255'};
+const BUILD=[
+{x:430,y:300,w:220,h:130,wall:'#7f93b8',roof:'#2c4a8a',label:'Cowles Library'},
+{x:300,y:520,w:160,h:110,wall:'#9a8f86',roof:'#5a3b3b',label:'Residence Hall'},
+{x:1900,y:300,w:200,h:120,wall:'#a7b2a0',roof:'#3b6a56',label:'Student Center'},
+{x:2150,y:470,w:170,h:120,wall:'#b0a58f',roof:'#6a4c34',label:'Classroom Hall'},
+{x:1900,y:1380,w:220,h:130,wall:'#a58fa8',roof:'#5a3b6a',label:'Grand View Hall'},
+{x:2160,y:1600,w:160,h:110,wall:'#9fb0c0',roof:'#34506a',label:'Residence'},
+{x:1170,y:780,w:260,h:130,wall:'#d8d2c0',roof:'#8a8f9c',label:'Iowa State Capitol',cap:true}
+];
+const SCULPT=[{x:1010,y:1440,t:'sphere',c:'#e9606f'},{x:1075,y:1490,t:'cube',c:'#6fb4ff'},{x:950,y:1500,t:'cone',c:'#f4b942'},{x:1030,y:1380,t:'ring',c:'#7ee0a1'}];
+const RIVER=[[1640,-40],[1590,300],[1690,650],[1600,1000],[1660,1350],[1580,1700],[1640,2040]];
+const LAKE={x:470,y:1680,rx:190,ry:100},DOCK={x0:450,x1:490,y0:1570,y1:1690};
+const RIM={rx:1047,ry:764};
+function mulberry(a){return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}}
+const rand=mulberry(1933);
+function segD(px,py,ax,ay,bx,by){const dx=bx-ax,dy=by-ay;const l=dx*dx+dy*dy;let t=l?((px-ax)*dx+(py-ay)*dy)/l:0;t=Math.max(0,Math.min(1,t));return Math.hypot(px-(ax+t*dx),py-(ay+t*dy))}
+function polyD(p,x,y){let m=1e9;for(let i=0;i<p.length-1;i++){const d=segD(x,y,p[i][0],p[i][1],p[i+1][0],p[i+1][1]);if(d<m)m=d}return m}
+const roadPts=[];
+ZONES.forEach(z=>{const n=Math.round(Math.hypot(z.x-HUB.x,z.y-HUB.y)/8);for(let i=0;i<=n;i++)roadPts.push([HUB.x+(z.x-HUB.x)*i/n,HUB.y+(z.y-HUB.y)*i/n])});
+for(let a=0;a<TAU;a+=0.006)roadPts.push([HUB.x+RIM.rx*Math.cos(a),HUB.y+RIM.ry*Math.sin(a)]);
+const bridges=roadPts.filter(p=>polyD(RIVER,p[0],p[1])<44);
+function nearBridge(x,y){for(const b of bridges)if(Math.abs(b[0]-x)<48&&Math.abs(b[1]-y)<48&&Math.hypot(b[0]-x,b[1]-y)<48)return true;return false}
+function inLake(x,y,m){const a=(x-LAKE.x)/(LAKE.rx+m),b=(y-LAKE.y)/(LAKE.ry+m);return a*a+b*b<1}
+function inDock(x,y){return x>DOCK.x0&&x<DOCK.x1&&y>DOCK.y0&&y<DOCK.y1}
+function roadD(x,y){let m=1e9;for(const p of roadPts){const d=(p[0]-x)*(p[0]-x)+(p[1]-y)*(p[1]-y);if(d<m)m=d}return Math.sqrt(m)}
+const fixed=[];VERSES.forEach(v=>fixed.push([v.x,v.y]));FRIENDS.forEach(f=>fixed.push([f.x,f.y]));
+const trees=[];
+(function(){let tries=0;while(trees.length<300&&tries<7000){tries++;const x=40+rand()*(W-80),y=40+rand()*(H-80);
+if(Math.hypot(x-HUB.x,y-HUB.y)<250)continue;
+if(BUILD.some(b=>x>b.x-34&&x<b.x+b.w+34&&y>b.y-60&&y<b.y+b.h+34))continue;
+if(ZONES.some(z=>Math.hypot(x-z.x,y-z.y)<130))continue;
+if(polyD(RIVER,x,y)<64||inLake(x,y,36))continue;
+if(fixed.some(f=>Math.hypot(x-f[0],y-f[1])<64))continue;
+if(SCULPT.some(s=>Math.hypot(x-s.x,y-s.y)<60))continue;
+if(Math.hypot(x-800,y-560)<170&&Math.abs(y-560)<110)continue;
+if(x>1880&&x<2100&&y>1640&&y<1790)continue;
+if(roadD(x,y)<42)continue;
+trees.push({x,y,s:.8+rand()*.7,t:rand()<.2?1:0,c:rand()<.28?1:0,ph:rand()*TAU})}})();
+function rr(g,x,y,w,h,r){g.beginPath();g.moveTo(x+r,y);g.arcTo(x+w,y,x+w,y+h,r);g.arcTo(x+w,y+h,x,y+h,r);g.arcTo(x,y+h,x,y,r);g.arcTo(x,y,x+w,y,r);g.closePath()}
+function strokePoly(g,p,w,c){g.strokeStyle=c;g.lineWidth=w;g.lineCap='round';g.lineJoin='round';g.beginPath();p.forEach((q,i)=>i?g.lineTo(q[0],q[1]):g.moveTo(q[0],q[1]));g.stroke()}
+function emblem(g,x,y,r,c){g.strokeStyle=c;g.lineWidth=Math.max(1,r*.28);g.beginPath();g.arc(x,y,r,0,TAU);g.stroke();g.beginPath();g.moveTo(x-r,y);g.lineTo(x+r,y);g.moveTo(x,y-r);g.lineTo(x,y+r);g.stroke()}
+// ---- static world layer ----
+const world=document.createElement('canvas');world.width=W;world.height=H;
+(function(){const g=world.getContext('2d');
+g.fillStyle='#2e6a4e';g.fillRect(0,0,W,H);
+for(let i=0;i<3200;i++){g.strokeStyle=rand()<.5?'rgba(255,255,255,.05)':'rgba(0,30,20,.12)';g.lineWidth=2;const x=rand()*W,y=rand()*H;g.beginPath();g.moveTo(x,y);g.lineTo(x+rand()*8-4,y-6-rand()*6);g.stroke()}
+ZONES.forEach(z=>{const gr=g.createRadialGradient(z.x,z.y,20,z.x,z.y,470);gr.addColorStop(0,'rgba('+z.tint+',.26)');gr.addColorStop(1,'rgba('+z.tint+',0)');g.fillStyle=gr;g.fillRect(z.x-470,z.y-470,940,940)});
+strokePoly(g,RIVER,92,'#1f5a45');strokePoly(g,RIVER,66,'#2a7fb0');strokePoly(g,RIVER,40,'#3b97c8');
+g.fillStyle='#d8c48f';g.beginPath();g.ellipse(LAKE.x,LAKE.y,LAKE.rx+16,LAKE.ry+16,0,0,TAU);g.fill();
+g.fillStyle='#2b7db3';g.beginPath();g.ellipse(LAKE.x,LAKE.y,LAKE.rx,LAKE.ry,0,0,TAU);g.fill();
+g.fillStyle='#3b97c8';g.beginPath();g.ellipse(LAKE.x,LAKE.y,LAKE.rx-40,LAKE.ry-24,0,0,TAU);g.fill();
+g.setLineDash([14,12]);g.strokeStyle='#b9a77a';g.lineWidth=6;g.beginPath();g.ellipse(LAKE.x,LAKE.y,LAKE.rx+46,LAKE.ry+46,0,0,TAU);g.stroke();g.setLineDash([]);
+g.fillStyle='#8a6a3f';g.fillRect(DOCK.x0,DOCK.y0,DOCK.x1-DOCK.x0,DOCK.y1-DOCK.y0);g.strokeStyle='#5e4527';g.lineWidth=2;
+for(let y=DOCK.y0;y<DOCK.y1;y+=8){g.beginPath();g.moveTo(DOCK.x0,y);g.lineTo(DOCK.x1,y);g.stroke()}
+const road=(w,c)=>{g.strokeStyle=c;g.lineWidth=w;g.lineCap='round';ZONES.forEach(z=>{g.beginPath();g.moveTo(HUB.x,HUB.y);g.lineTo(z.x,z.y);g.stroke()});g.beginPath();g.ellipse(HUB.x,HUB.y,RIM.rx,RIM.ry,0,0,TAU);g.stroke()};
+road(36,'#8b7d5a');road(27,'#c3b387');
+bridges.forEach(b=>{g.fillStyle='#7a5a32';g.beginPath();g.arc(b[0],b[1],19,0,TAU);g.fill()});
+bridges.forEach(b=>{g.fillStyle='#a47e47';g.beginPath();g.arc(b[0],b[1],14,0,TAU);g.fill()});
+ZONES.forEach(z=>{g.fillStyle='#b9ad88';g.beginPath();g.arc(z.x,z.y,100,0,TAU);g.fill();g.strokeStyle='#d9cca0';g.lineWidth=5;g.stroke();emblem(g,z.x,z.y+0,26,'rgba(244,185,66,.55)')});
+g.fillStyle='#a99e7e';g.beginPath();g.arc(HUB.x,HUB.y,230,0,TAU);g.fill();g.strokeStyle='#d9cca0';g.lineWidth=8;g.stroke();
+g.strokeStyle='#f4b942';g.lineWidth=6;g.beginPath();g.arc(HUB.x,HUB.y,170,0,TAU);g.stroke();
+[-135,-45,45,135].forEach(a=>{const r=a*Math.PI/180;g.beginPath();g.moveTo(HUB.x+Math.cos(r)*34,HUB.y+Math.sin(r)*34);g.lineTo(HUB.x+Math.cos(r)*170,HUB.y+Math.sin(r)*170);g.stroke()});
+g.fillStyle='#f4b942';g.beginPath();g.arc(HUB.x,HUB.y,34,0,TAU);g.fill();
+// stadium
+g.fillStyle='#b5483a';g.beginPath();g.ellipse(800,560,135,84,0,0,TAU);g.fill();g.fillStyle='#2c8a5a';g.beginPath();g.ellipse(800,560,108,60,0,0,TAU);g.fill();
+g.strokeStyle='rgba(255,255,255,.5)';g.lineWidth=2;g.beginPath();g.moveTo(800,500);g.lineTo(800,620);g.stroke();
+// parking + field
+g.fillStyle='#3a3f4b';g.fillRect(2300,320,200,90);g.strokeStyle='rgba(255,255,255,.55)';for(let x=2312;x<2500;x+=24){g.beginPath();g.moveTo(x,330);g.lineTo(x,360);g.stroke()}
+for(let i=0;i<8;i++){g.fillStyle=i%2?'#2f8f5c':'#2a8454';g.fillRect(1880+i*24,1700,24,110)}
+g.strokeStyle='rgba(255,255,255,.55)';g.lineWidth=3;g.strokeRect(1880,1700,192,110);
+})();
+// ---- sprites ----
+function drawPerson(g,x,y,o,dir,moving,t,sc){sc=sc||1;g.save();g.translate(x,y);g.scale(sc,sc);
+g.fillStyle='rgba(0,0,0,.28)';g.beginPath();g.ellipse(0,2,13,5,0,0,TAU);g.fill();
+const sw=moving?Math.sin(t*12):0,bob=moving?-Math.abs(Math.sin(t*12))*2:0;
+g.fillStyle=o.pants||'#2a3358';g.fillRect(-6,-14,5,14+sw*3);g.fillRect(1,-14,5,14-sw*3);
+if(o.pack&&dir!=='up'){g.fillStyle='#8a5a2b';rr(g,-12,-30+bob,5,15,2);g.fill()}
+g.fillStyle=o.shirt;rr(g,-9,-33+bob,18,21,6);g.fill();
+if(o.pack&&dir==='up'){g.fillStyle='#8a5a2b';rr(g,-8,-31+bob,16,17,4);g.fill()}
+if(o.emblem&&dir!=='up')emblem(g,0,-22+bob,3.2,'#f4b942');
+g.fillStyle=o.skin;g.beginPath();g.arc(-10.5,-19+bob-sw,2.4,0,TAU);g.arc(10.5,-19+bob+sw,2.4,0,TAU);g.fill();
+g.beginPath();g.arc(0,-41+bob,9,0,TAU);g.fill();
+const fx=dir==='left'?-2.6:dir==='right'?2.6:0;
+if(dir==='up'){g.fillStyle=o.cap||o.hair||'#222';g.beginPath();g.arc(0,-41+bob,9.3,0,TAU);g.fill()}
+else{
+if(o.cap){g.fillStyle=o.cap;g.beginPath();g.arc(0,-42+bob,9.4,Math.PI,TAU);g.fill();g.fillRect(-9.4,-43+bob,18.8,2);
+if(dir==='down'){g.fillStyle='#16295f';g.beginPath();g.ellipse(0,-42.5+bob,10.5,2.6,0,0,TAU);g.fill()}else{g.fillStyle='#16295f';g.fillRect(fx>0?6:-12,-44.5+bob,6,3)}}
+else{g.fillStyle=o.hair||'#222';g.beginPath();g.arc(0,-42+bob,9.4,Math.PI*1.02,TAU*.99);g.fill()}
+g.fillStyle='#1b1b2a';g.beginPath();g.arc(fx-3.2,-39.5+bob,1.2,0,TAU);g.arc(fx+3.2,-39.5+bob,1.2,0,TAU);g.fill();
+if(o.glasses){g.strokeStyle='#14182b';g.lineWidth=1.3;g.beginPath();g.arc(fx-3.6,-39.5+bob,3.5,0,TAU);g.moveTo(fx+7.1,-39.5+bob);g.arc(fx+3.6,-39.5+bob,3.5,0,TAU);g.moveTo(fx-0.1,-39.7+bob);g.lineTo(fx+0.1,-39.7+bob);g.stroke()}}
+g.restore()}
+function portrait(o,s){s=s||120;const c=document.createElement('canvas');c.width=c.height=s*2;const g=c.getContext('2d');g.scale(2,2);
+const bg=g.createRadialGradient(s/2,s*.3,6,s/2,s/2,s*.75);bg.addColorStop(0,'#3a5cc0');bg.addColorStop(1,'#0f1b45');g.fillStyle=bg;g.fillRect(0,0,s,s);
+g.fillStyle=o.shirt;g.beginPath();g.ellipse(s/2,s*1.05,s*.44,s*.34,0,0,TAU);g.fill();
+if(o.emblem)emblem(g,s*.5,s*.9,s*.05,'#f4b942');
+g.fillStyle=o.skin;g.fillRect(s*.43,s*.64,s*.14,s*.14);
+g.beginPath();g.arc(s*.5,s*.47,s*.24,0,TAU);g.fill();g.beginPath();g.arc(s*.26,s*.49,s*.04,0,TAU);g.arc(s*.74,s*.49,s*.04,0,TAU);g.fill();
+if(o.cap){g.fillStyle=o.cap;g.beginPath();g.ellipse(s*.5,s*.4,s*.31,s*.06,0,0,TAU);g.fill();g.beginPath();g.moveTo(s*.25,s*.4);g.quadraticCurveTo(s*.5,s*-.08,s*.75,s*.4);g.closePath();g.fill();emblem(g,s*.5,s*.22,s*.045,'#f4b942')}
+else{g.fillStyle=o.hair||'#222';g.beginPath();g.arc(s*.5,s*.45,s*.255,Math.PI*1.02,TAU*.99);g.fill()}
+g.fillStyle='#1b1b2a';g.beginPath();g.arc(s*.4,s*.5,s*.021,0,TAU);g.arc(s*.6,s*.5,s*.021,0,TAU);g.fill();
+if(o.glasses){g.strokeStyle='#14182b';g.lineWidth=s*.026;g.fillStyle='rgba(255,255,255,.12)';[s*.4,s*.6].forEach(x=>{g.beginPath();g.arc(x,s*.5,s*.075,0,TAU);g.fill();g.stroke()});g.beginPath();g.moveTo(s*.475,s*.495);g.lineTo(s*.525,s*.495);g.moveTo(s*.325,s*.49);g.lineTo(s*.27,s*.47);g.moveTo(s*.675,s*.49);g.lineTo(s*.73,s*.47);g.stroke()}
+g.strokeStyle='#8a4a3a';g.lineWidth=s*.022;g.lineCap='round';g.beginPath();g.arc(s*.5,s*.56,s*.08,.2*Math.PI,.8*Math.PI);g.stroke();
+return c.toDataURL()}
+const PORT={ezra:portrait(EZRA),me:portrait(ME)};FRIENDS.forEach(f=>PORT[f.id]=portrait(f.look));
+function drawBuilding(g,b){const x=b.x,y=b.y,w=b.w,h=b.h,rh=h*.42;
+g.fillStyle='rgba(0,0,0,.3)';g.beginPath();g.ellipse(x+w/2,y+h+4,w*.55,9,0,0,TAU);g.fill();
+g.fillStyle=b.wall;g.fillRect(x,y+rh,w,h-rh);
+const cols=Math.max(2,Math.floor(w/38)),gap=w/cols;
+for(let i=0;i<cols;i++){g.fillStyle='#ffd98a';g.fillRect(x+gap*i+gap/2-7,y+rh+10,14,16);g.fillStyle='rgba(0,0,0,.25)';g.fillRect(x+gap*i+gap/2-.5,y+rh+10,1,16)}
+g.fillStyle='#3a2a1c';g.fillRect(x+w/2-9,y+h-24,18,24);
+g.fillStyle=b.roof;g.beginPath();g.moveTo(x-8,y+rh);g.lineTo(x+14,y);g.lineTo(x+w-14,y);g.lineTo(x+w+8,y+rh);g.closePath();g.fill();
+g.fillStyle='rgba(0,0,0,.2)';g.fillRect(x-8,y+rh-5,w+16,5);
+if(b.cap){const cx=x+w/2;g.fillStyle='#e6dfcc';g.fillRect(cx-42,y-34,84,40);
+[x+24,x+w-24].forEach(sx=>{g.fillStyle='#d9a21f';g.beginPath();g.arc(sx,y+6,17,Math.PI,TAU);g.fill()});
+const gr=g.createRadialGradient(cx-16,y-66,6,cx,y-34,58);gr.addColorStop(0,'#fff0b0');gr.addColorStop(.5,'#e2ac2a');gr.addColorStop(1,'#a8741a');
+g.fillStyle=gr;g.beginPath();g.arc(cx,y-34,56,Math.PI,TAU);g.fill();g.fillStyle='#d9a21f';g.fillRect(cx-7,y-104,14,22);g.beginPath();g.moveTo(cx-5,y-104);g.lineTo(cx,y-122);g.lineTo(cx+5,y-104);g.fill();
+g.fillStyle='#f3ecd8';for(let i=0;i<6;i++)g.fillRect(x+24+i*((w-60)/5),y+rh+4,8,h-rh-8)}
+g.font='700 12px DM Sans,system-ui,sans-serif';g.textAlign='center';g.fillStyle='rgba(255,255,255,.88)';g.fillText(b.label,x+w/2,y-(b.cap?132:10))}
+function drawTree(g,t,time){const s=t.s,sw=Math.sin(time*.8+t.ph)*1.5*s;g.save();g.translate(t.x,t.y);
+g.fillStyle='rgba(0,0,0,.25)';g.beginPath();g.ellipse(0,3,16*s,6*s,0,0,TAU);g.fill();
+g.fillStyle='#5a3d28';g.fillRect(-3*s,-22*s,6*s,24*s);
+if(t.t){g.fillStyle=t.c?'#b46a22':'#255f45';for(let i=0;i<3;i++){g.beginPath();g.moveTo(-17*s+i*3*s+sw*(1-i/3),-14*s-i*17*s);g.lineTo(17*s-i*3*s+sw*(1-i/3),-14*s-i*17*s);g.lineTo(sw,-38*s-i*17*s);g.closePath();g.fill()}}
+else{const c=t.c?['#c9791f','#e19a2e']:['#2c7a50','#3a9462'];g.fillStyle=c[0];g.beginPath();g.arc(-9*s+sw,-34*s,15*s,0,TAU);g.arc(9*s+sw,-34*s,15*s,0,TAU);g.arc(sw,-46*s,16*s,0,TAU);g.fill();g.fillStyle=c[1];g.beginPath();g.arc(sw-4*s,-48*s,9*s,0,TAU);g.fill()}
+g.restore()}
+function drawScroll(g,x,y,t){const b=Math.sin(t*2.4+x)*4;g.save();g.translate(x,y-26+b);g.fillStyle='#fff1c9';rr(g,-11,-7,22,14,3);g.fill();g.fillStyle='#d9a21f';rr(g,-13,-9,5,18,2.5);g.fill();rr(g,8,-9,5,18,2.5);g.fill();g.strokeStyle='rgba(120,80,20,.6)';g.lineWidth=1;for(let i=-3;i<=3;i+=3){g.beginPath();g.moveTo(-6,i);g.lineTo(6,i);g.stroke()}g.restore();
+g.fillStyle='rgba(0,0,0,.25)';g.beginPath();g.ellipse(x,y,10,4,0,0,TAU);g.fill()}
+function drawLamp(g,x,y,t){g.fillStyle='#2b2b3a';g.fillRect(x-2,y-34,4,34);g.fillStyle='#ffd77a';rr(g,x-6,y-46,12,13,3);g.fill();g.fillStyle='#2b2b3a';g.fillRect(x-8,y-48,16,3)}
+function drawSculpt(g,s){g.fillStyle='rgba(0,0,0,.25)';g.beginPath();g.ellipse(s.x,s.y+2,16,6,0,0,TAU);g.fill();g.fillStyle='#8c8c9a';g.fillRect(s.x-9,s.y-8,18,10);g.fillStyle=s.c;
+if(s.t==='sphere'){g.beginPath();g.arc(s.x,s.y-24,15,0,TAU);g.fill()}
+else if(s.t==='cube'){g.fillRect(s.x-13,s.y-34,26,26)}
+else if(s.t==='cone'){g.beginPath();g.moveTo(s.x-15,s.y-8);g.lineTo(s.x+15,s.y-8);g.lineTo(s.x,s.y-42);g.fill()}
+else{g.strokeStyle=s.c;g.lineWidth=7;g.beginPath();g.arc(s.x,s.y-24,13,0,TAU);g.stroke()}}
+// ---- state ----
+const KEY='wheelroad.v1';
+let S={collected:[],memorized:[],friends:[],zones:[],done:false,intro:false};
+function load(){try{const r=localStorage.getItem(KEY);if(r){const o=JSON.parse(r);if(o&&Array.isArray(o.collected))S=Object.assign(S,o)}}catch(e){}}
+function save(){try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}}
+load();
+const has=(k,id)=>S[k].indexOf(id)>=0;
+const add=(k,id)=>{if(!has(k,id)){S[k].push(id);save()}};
+const progress=()=>S.collected.length/VERSES.length;
+const light=()=>S.done?1:Math.min(.9,progress()*.9);
+let started=false,modalOpen=false,muted=false,ac=null;
+// ---- audio ----
+function chime(notes){if(muted)return;try{ac=ac||new(window.AudioContext||window.webkitAudioContext)();notes.forEach((f,i)=>{const o=ac.createOscillator(),g=ac.createGain(),t=ac.currentTime+i*.12;o.type='sine';o.frequency.value=f;g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(.14,t+.02);g.gain.exponentialRampToValueAtTime(.0001,t+.9);o.connect(g);g.connect(ac.destination);o.start(t);o.stop(t+1)})}catch(e){}}
+// ---- modal / toast ----
+const modal=$('#modal'),card=$('#card');
+function showModal(html,acts,wide){card.className=wide?'wide':'';card.innerHTML=html+'<div class="acts"></div>';const box=card.querySelector('.acts');let first=null;
+acts.forEach(a=>{const b=document.createElement('button');b.className='btn '+(a.cls||'');b.innerHTML=a.label;b.onclick=()=>{closeModal();if(a.fn)a.fn()};box.appendChild(b);if(!first||a.cls==='primary'&&first.cls!=='primary')first=b});
+modal.hidden=false;modalOpen=true;card.scrollTop=0;if(first)setTimeout(()=>first.focus(),30)}
+function closeModal(){modal.hidden=true;modalOpen=false}
+function toast(html,ms){const box=$('#toasts');while(box.children.length>2)box.firstChild.remove();const d=document.createElement('div');d.className='toast';d.innerHTML=html;box.appendChild(d);setTimeout(()=>{d.classList.add('out');setTimeout(()=>d.remove(),450)},ms||4600)}
+function banner(t,s){const b=$('#banner');b.innerHTML='<b>'+t+'</b><span>'+s+'</span>';b.classList.remove('show');void b.offsetWidth;b.classList.add('show')}
+function talk(key,name,lines,done,endLabel){let i=0;(function step(){const last=i===lines.length-1;
+showModal('<div class="talk"><img class="port" src="'+PORT[key]+'" alt=""><div><div class="who">'+name+'</div><p class="say">'+lines[i]+'</p></div></div>',
+[{label:last?(endLabel||'Got it'):'Next',cls:'primary',fn:()=>{if(last){if(done)done()}else{i++;step()}}}])})()}
+const ezraSay=(lines,done,end)=>talk('ezra','Ezra',lines,done,end);
+// ---- verse flow ----
+function shuffle(a){a=a.slice();for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a}
+function quiz(v,done){const opts=shuffle([v.key].concat(v.wrong));const blanked=v.text.replace(v.key,'<span class="blank">&nbsp;</span>');
+showModal('<div class="kick">Hide it in your heart</div><h2>'+v.ref+'</h2><p class="verse">“'+blanked+'”</p><p class="note">Which word is missing?</p>',
+opts.map(o=>({label:o,cls:'',fn:()=>{
+if(o===v.key){add('memorized',v.id||v.ref);chime([660,880,1320]);toast('<b>Memorized.</b> '+v.ref+' is in your heart now.');
+showModal('<div class="kick">Well done</div><h2>'+v.ref+'</h2><p class="verse">“'+v.text.replace(v.key,'<span class="hit">'+v.key+'</span>')+'”</p>',[{label:'Keep going',cls:'primary',fn:done}])}
+else{showModal('<div class="kick">Not quite</div><h2>'+v.ref+'</h2><p class="note">The missing word was <b class="hit">'+v.key+'</b>. Read it once more and try again.</p>',[{label:'Try again',cls:'primary',fn:()=>quiz(v,done)},{label:'Skip',fn:done}])}}})))}
+function afterVerse(v){const z=ZB[v.zone];const n=VERSES.filter(x=>x.zone===v.zone&&has('collected',x.id)).length;
+if(n===4){chime([523,659,784,1046]);ezraSay(['That is the whole <b>'+z.spoke+'</b> spoke lit up at '+z.name+'. Look how much brighter the road is.'].concat(S.collected.length===16?['All sixteen scrolls. Head to the Capitol plaza and step onto the Wheel at the center.']:[]))}
+else if(S.collected.length===16){ezraSay(['All sixteen scrolls! Head to the Capitol plaza and step onto the Wheel at the center.'])}}
+function openScroll(v){const fresh=!has('collected',v.id);if(fresh){add('collected',v.id);chime([784,988,1175]);dirty=true}
+showModal('<div class="kick">'+ZB[v.zone].spoke+' · Scroll '+S.collected.length+' of 16</div><h2>'+v.ref+'</h2><p class="verse">“'+v.text+'”</p><p class="note">'+v.note+'</p>',
+[{label:'Hide it in my heart',cls:'primary',fn:()=>quiz(v,()=>afterVerse(v))},{label:'Keep walking',fn:()=>afterVerse(v)}])}
+function openFriend(f){
+if(has('friends',f.id))return;
+const opts=shuffle(f.opts);
+showModal('<div class="talk"><img class="port" src="'+PORT[f.id]+'" alt=""><div><div class="kick">A friend on the trail</div><div class="who">'+f.name+'</div><p class="say">'+f.line+'</p></div></div><p class="note" style="margin-top:14px">Which verse would you share?</p>',
+opts.map(id=>{const v=id===f.right&&HV[id]?HV[id]:VB[id]||HV[id];return{label:'<b>'+v.ref+'</b>'+v.text,cls:'opt',fn:()=>{
+if(id===f.right){add('friends',f.id);dirty=true;chime([523,659,784,1046]);follow(f);
+talk(f.id,f.name,[f.thanks,'Mind if I walk with you for a while?'],()=>{const n=S.friends.length;toast('<b>'+f.name+'</b> joined you. '+n+' of 4 friends walking with you.');if(n===4)ezraSay(['Four friends, all walking with you. That is what 2 Timothy 2:2 looks like in real life: you pass it on, and they pass it on.'])},'Walk together')}
+else ezraSay(['Good verse, just not the best fit for what '+f.name+' asked. Listen for the actual question.'],()=>openFriend(f),'Try again')}}}))}
+function journal(){let h='<div class="kick">Scripture journal</div><h2>'+S.collected.length+' of 16 scrolls · '+S.memorized.length+' memorized</h2>';
+ZONES.forEach(z=>{h+='<div class="jz">'+z.spoke+' · '+z.name+'</div>';VERSES.filter(v=>v.zone===z.id).forEach(v=>{const got=has('collected',v.id);
+h+='<div class="jv'+(got?'':' lock')+'"><div class="r">'+(got?v.ref+(has('memorized',v.id)?' ✦':''):'Unfound scroll')+'</div><div class="t">'+(got?v.text:'Explore '+z.name+' to find it.')+'</div></div>'})});
+showModal(h,[{label:'Close',cls:'primary'}],true)}
+function help(){showModal('<div class="kick">How to play</div><h2>Follow the light</h2><p class="note">Move with WASD or the arrow keys (or the thumb stick). Press <b>E</b> or <b>Space</b> near anything glowing, or tap <b>A</b>. Collect all 16 Scripture scrolls across the four spokes of the Wheel, memorize what you find, and help the four friends you meet on the trail. Roads are shaped like the Wheel, and bridges cross the Des Moines River. The compass at the top points to the nearest scroll. Press <b>J</b> for the journal.</p>',[{label:'Back to the trail',cls:'primary'}])}
+// ---- game core ----
+const cv=$('#game'),ctx=cv.getContext('2d'),dk=document.createElement('canvas'),dg=dk.getContext('2d');
+let vw=0,vh=0,dpr=1,zm=1,dirty=true,time=0;
+const cam={x:0,y:0};
+const P={x:1300,y:1090,dir:'down',moving:false};
+const hist=[];
+let followers=[{key:'ezra',look:EZRA,x:1260,y:1100,dir:'down',moving:false}];
+function follow(f){followers.push({key:f.id,look:f.look,x:P.x,y:P.y,dir:'down',moving:false})}
+function resetFollowers(){followers=[followers[0]];S.friends.forEach(id=>{const f=FRIENDS.find(q=>q.id===id);if(f)follow(f)})}
+function resize(){dpr=Math.min(2,window.devicePixelRatio||1);vw=window.innerWidth;vh=window.innerHeight;
+cv.width=Math.round(vw*dpr);cv.height=Math.round(vh*dpr);dk.width=cv.width;dk.height=cv.height;
+zm=Math.max(.8,Math.min(1.4,Math.min(vw/900,vh/620)))}
+window.addEventListener('resize',resize);resize();
+function blocked(x,y){const r=11;
+if(x<r||y<r||x>W-r||y>H-r)return true;
+for(const b of BUILD)if(x+r>b.x&&x-r<b.x+b.w&&y+r>b.y+8&&y-r<b.y+b.h)return true;
+if(!inDock(x,y)&&inLake(x,y,6))return true;
+if(polyD(RIVER,x,y)<34&&!nearBridge(x,y))return true;
+for(const t of trees)if(Math.abs(t.x-x)<22&&Math.abs(t.y-y)<22&&Math.hypot(t.x-x,t.y-y)<14+r*.6)return true;
+for(const s of SCULPT)if(Math.hypot(s.x-x,s.y-y)<16+r*.6)return true;
+return false}
+const keys={};let jv={x:0,y:0};
+function inputVec(){let x=0,y=0;if(keys.ArrowLeft||keys.a)x-=1;if(keys.ArrowRight||keys.d)x+=1;if(keys.ArrowUp||keys.w)y-=1;if(keys.ArrowDown||keys.s)y+=1;
+if(x||y){const m=Math.hypot(x,y);return{x:x/m,y:y/m}}return jv}
+function update(dt){
+const run=started&&!modalOpen;let moved=false;
+if(run){const v=inputVec();if(v.x||v.y){const sp=(keys.Shift?260:190)*dt;const nx=P.x+v.x*sp,ny=P.y+v.y*sp;
+if(!blocked(nx,P.y)){P.x=nx;moved=true}if(!blocked(P.x,ny)){P.y=ny;moved=true}
+P.dir=Math.abs(v.x)>Math.abs(v.y)?(v.x<0?'left':'right'):(v.y<0?'up':'down')}}
+P.moving=moved;
+const l=hist[hist.length-1];if(!l||Math.hypot(P.x-l.x,P.y-l.y)>6){hist.push({x:P.x,y:P.y});if(hist.length>500)hist.shift()}
+followers.forEach((f,i)=>{const k=hist.length-1-(i+1)*10;const tg=k>=0?hist[k]:{x:P.x-30*(i+1),y:P.y+12};
+const ox=f.x,oy=f.y;f.x+=(tg.x-f.x)*Math.min(1,9*dt);f.y+=(tg.y-f.y)*Math.min(1,9*dt);
+const dx=f.x-ox,dy=f.y-oy;f.moving=Math.hypot(dx,dy)>.25;if(f.moving)f.dir=Math.abs(dx)>Math.abs(dy)?(dx<0?'left':'right'):(dy<0?'up':'down')});
+const tx=P.x-vw/zm/2,ty=P.y-vh/zm/2;const mw=vw/zm,mh=vh/zm;
+cam.x=mw>=W?(W-mw)/2:Math.max(0,Math.min(W-mw,tx));cam.y=mh>=H?(H-mh)/2:Math.max(0,Math.min(H-mh,ty));
+if(run)zoneCheck()}
+let curZone=null;
+function zoneCheck(){let best=null,bd=1e9;ZONES.forEach(z=>{const d=Math.hypot(P.x-z.x,P.y-z.y);if(d<bd){bd=d;best=z}});
+const hd=Math.hypot(P.x-HUB.x,P.y-HUB.y);let id=null;if(hd<260)id='hub';else if(bd<340)id=best.id;
+if(id!==curZone){curZone=id;if(id==='hub'){banner('Capitol Plaza','The Hub · Christ at the center')}
+else if(id){const z=ZB[id];banner(z.name,z.spoke);if(!has('zones',id)){add('zones',id);setTimeout(()=>toast('<b>Ezra:</b> '+z.fact,9000),1400)}}}}
+// ---- interaction ----
+function nearest(){let best=null;const c=(d,max,label,act)=>{if(d<max&&(!best||d<best.d))best={d,label,act}};
+VERSES.forEach(v=>{if(!has('collected',v.id))c(Math.hypot(P.x-v.x,P.y-v.y),56,'Read the scroll',()=>openScroll(v))});
+FRIENDS.forEach(f=>{if(!has('friends',f.id))c(Math.hypot(P.x-f.x,P.y-f.y),60,'Talk to '+f.name,()=>openFriend(f))});
+c(Math.hypot(P.x-HUB.x,P.y-(HUB.y+10)),66,S.done?'Stand on the Wheel':'Step onto the Wheel',hubAct);
+const e=followers[0];c(Math.hypot(P.x-e.x,P.y-e.y),52,'Talk to Ezra',ezraHint);
+return best}
+const TIPS=['Memorizing a verse is like putting a lamp in your pocket.','The Navigators exist to help people know Christ, make Him known, and help others do the same.','Don’t forget the friends on the trail. Everybody has a question.','Roads follow the Wheel, and the bridges cross the river. Stay on the road if you get stuck.'];
+let tipI=0;
+function ezraHint(){let lines;const left=VERSES.filter(v=>!has('collected',v.id));
+if(!left.length&&!S.done)lines=['Everything is lit except the center. Step onto the Wheel at the Capitol plaza.'];
+else if(left.length){let b=null,bd=1e9;left.forEach(v=>{const d=Math.hypot(P.x-v.x,P.y-v.y);if(d<bd){bd=d;b=v}});lines=['Nearest scroll is over by '+ZB[b.zone].name+'. Follow the compass up top.',TIPS[tipI++%TIPS.length]]}
+else lines=[TIPS[tipI++%TIPS.length]];
+ezraSay(lines)}
+// ---- render ----
+const flies=[];for(let i=0;i<46;i++)flies.push({x:rand()*W,y:rand()*H,a:rand()*TAU,s:8+rand()*14});
+function lerp(a,b,t){return a+(b-a)*t}
+function render(){
+const L=light(),g=ctx;g.setTransform(dpr,0,0,dpr,0,0);g.clearRect(0,0,vw,vh);
+g.save();g.scale(zm,zm);g.translate(-cam.x,-cam.y);
+const vx0=cam.x-80,vx1=cam.x+vw/zm+80,vy0=cam.y-160,vy1=cam.y+vh/zm+80;
+const sx=Math.max(0,cam.x),sy=Math.max(0,cam.y),sw=Math.min(W-sx,vw/zm+1),sh=Math.min(H-sy,vh/zm+1);
+g.fillStyle='#0a1230';g.fillRect(cam.x,cam.y,vw/zm+2,vh/zm+2);
+g.drawImage(world,sx,sy,sw,sh,sx,sy,sw,sh);
+// water shimmer
+g.strokeStyle='rgba(255,255,255,.28)';g.lineWidth=2;g.lineCap='round';
+for(let i=0;i<RIVER.length-1;i++){const a=RIVER[i],b=RIVER[i+1];for(let k=0;k<6;k++){const u=(k+.5)/6,x=lerp(a[0],b[0],u)+Math.sin(time+k+i)*8,y=lerp(a[1],b[1],u);if(x<vx0||x>vx1||y<vy0||y>vy1)continue;g.globalAlpha=.3+.3*Math.sin(time*1.6+k*2+i);g.beginPath();g.moveTo(x-9,y);g.lineTo(x+9,y);g.stroke()}}
+for(let i=0;i<14;i++){const x=LAKE.x+Math.cos(i*1.9)*(LAKE.rx-50)*(.3+.07*i%1),y=LAKE.y+Math.sin(i*2.7)*(LAKE.ry-30)*.7;if(x<vx0||x>vx1||y<vy0||y>vy1)continue;g.globalAlpha=.25+.3*Math.sin(time*1.4+i);g.beginPath();g.moveTo(x-10,y);g.lineTo(x+10,y);g.stroke()}
+g.globalAlpha=1;
+// entities
+const E=[];
+BUILD.forEach(b=>{if(b.x+b.w>vx0&&b.x<vx1&&b.y+b.h>vy0&&b.y-130<vy1)E.push([b.y+b.h,()=>drawBuilding(g,b)])});
+trees.forEach(t=>{if(t.x>vx0&&t.x<vx1&&t.y>vy0&&t.y<vy1+60)E.push([t.y,()=>drawTree(g,t,time)])});
+SCULPT.forEach(s=>E.push([s.y,()=>drawSculpt(g,s)]));
+VERSES.forEach(v=>{E.push([v.y,has('collected',v.id)?()=>drawLamp(g,v.x,v.y,time):()=>drawScroll(g,v.x,v.y,time)])});
+FRIENDS.forEach(f=>{if(!has('friends',f.id))E.push([f.y,()=>{drawPerson(g,f.x,f.y,f.look,'down',false,time);g.fillStyle='#f4b942';g.font='800 20px Bricolage Grotesque,system-ui';g.textAlign='center';g.fillText('!',f.x,f.y-62+Math.sin(time*3)*3)}])});
+followers.forEach(f=>E.push([f.y,()=>drawPerson(g,f.x,f.y,f.look,f.dir,f.moving,time)]));
+E.push([P.y,()=>drawPerson(g,P.x,P.y,ME,P.dir,P.moving,time)]);
+E.push([HUB.y+10,()=>{g.fillStyle='rgba(244,185,66,'+(.25+.25*Math.sin(time*2)*(S.collected.length===16?1:.2))+')';g.beginPath();g.arc(HUB.x,HUB.y+10,44,0,TAU);g.fill();emblem(g,HUB.x,HUB.y+10,22,'#fff3c4')}]);
+E.sort((a,b)=>a[0]-b[0]);E.forEach(e=>e[1]());
+g.restore();
+// darkness
+const a=lerp(.8,.07,L);
+if(a>.02){dg.setTransform(1,0,0,1,0,0);dg.globalCompositeOperation='source-over';dg.clearRect(0,0,dk.width,dk.height);
+dg.fillStyle='rgba('+Math.round(lerp(6,255,L))+','+Math.round(lerp(10,170,L))+','+Math.round(lerp(38,90,L))+','+a+')';dg.fillRect(0,0,dk.width,dk.height);
+dg.globalCompositeOperation='destination-out';dg.setTransform(dpr*zm,0,0,dpr*zm,-cam.x*dpr*zm,-cam.y*dpr*zm);
+const cut=(x,y,r,s)=>{if(x<vx0-r||x>vx1+r||y<vy0-r||y>vy1+r+120)return;const gr=dg.createRadialGradient(x,y,r*.15,x,y,r);gr.addColorStop(0,'rgba(0,0,0,'+s+')');gr.addColorStop(1,'rgba(0,0,0,0)');dg.fillStyle=gr;dg.fillRect(x-r,y-r,r*2,r*2)};
+cut(P.x,P.y-20,150+170*L,1);followers.forEach(f=>cut(f.x,f.y-20,70,.8));
+VERSES.forEach(v=>has('collected',v.id)?cut(v.x,v.y-30,150,.92):cut(v.x,v.y-26,110,.75));
+FRIENDS.forEach(f=>{if(!has('friends',f.id))cut(f.x,f.y-20,90,.7)});
+ZONES.forEach(z=>cut(z.x,z.y,130,.5));cut(HUB.x,HUB.y-70,220,.55+.4*L);
+dg.setTransform(1,0,0,1,0,0);dg.globalCompositeOperation='source-over';
+g.setTransform(1,0,0,1,0,0);g.drawImage(dk,0,0)}
+// glows
+g.setTransform(dpr*zm,0,0,dpr*zm,-cam.x*dpr*zm,-cam.y*dpr*zm);g.globalCompositeOperation='lighter';
+const glow=(x,y,r,c)=>{if(x<vx0-r||x>vx1+r||y<vy0-r||y>vy1+r+120)return;const gr=g.createRadialGradient(x,y,2,x,y,r);gr.addColorStop(0,c);gr.addColorStop(1,'rgba(255,200,90,0)');g.fillStyle=gr;g.fillRect(x-r,y-r,r*2,r*2)};
+VERSES.forEach(v=>has('collected',v.id)?glow(v.x,v.y-40,46,'rgba(255,214,120,.45)'):glow(v.x,v.y-30,70+8*Math.sin(time*3+v.x),'rgba(255,210,100,.5)'));
+glow(HUB.x,HUB.y-90,120,'rgba(255,214,120,.22)');
+const fa=Math.pow(1-L,1)*.9;
+if(fa>.03)flies.forEach(f=>{f.a+=.01*Math.sin(time+f.x);f.x+=Math.cos(f.a)*f.s*.016;f.y+=Math.sin(f.a)*f.s*.016;if(f.x<cam.x-60||f.x>cam.x+vw/zm+60||f.y<cam.y-60||f.y>cam.y+vh/zm+60){f.x=cam.x+Math.random()*vw/zm;f.y=cam.y+Math.random()*vh/zm}
+glow(f.x,f.y,12,'rgba(200,255,150,'+(fa*(.4+.4*Math.sin(time*3+f.s)))+')')});
+g.globalCompositeOperation='source-over';g.setTransform(dpr,0,0,dpr,0,0)}
+// ---- HUD ----
+const wcv=$('#wheelCv'),wg=wcv.getContext('2d'),ccv=$('#compassCv'),cg=ccv.getContext('2d'),mcv=$('#miniCv'),mg=mcv.getContext('2d');
+function drawWheel(){const s=168,cx=s/2,cy=s/2,R=s*.42;wg.clearRect(0,0,s,s);wg.lineCap='round';
+wg.strokeStyle=S.done?'#f4b942':'rgba(255,255,255,.28)';wg.lineWidth=7;wg.beginPath();wg.arc(cx,cy,R,0,TAU);wg.stroke();
+ZONES.forEach(z=>{const r=z.ang*Math.PI/180,n=VERSES.filter(v=>v.zone===z.id&&has('collected',v.id)).length;
+wg.strokeStyle='rgba(255,255,255,.22)';wg.lineWidth=4;wg.beginPath();wg.moveTo(cx+Math.cos(r)*18,cy+Math.sin(r)*18);wg.lineTo(cx+Math.cos(r)*R,cy+Math.sin(r)*R);wg.stroke();
+for(let i=0;i<4;i++){const d=26+i*((R-34)/3);wg.fillStyle=i<n?'#f4b942':'rgba(255,255,255,.2)';wg.beginPath();wg.arc(cx+Math.cos(r)*d,cy+Math.sin(r)*d,i<n?7:5,0,TAU);wg.fill()}});
+wg.fillStyle=(S.collected.length===16||S.done)?'#fff3c4':'rgba(255,255,255,.25)';wg.beginPath();wg.arc(cx,cy,16,0,TAU);wg.fill()}
+function stats(){$('#stats').innerHTML='<b>'+S.collected.length+'/16</b> scrolls<br>'+S.memorized.length+' memorized · '+S.friends.length+'/4 friends'}
+function drawCompass(){const s=88;cg.clearRect(0,0,s,s);cg.fillStyle='rgba(255,255,255,.08)';cg.beginPath();cg.arc(44,44,40,0,TAU);cg.fill();cg.strokeStyle='rgba(155,216,255,.4)';cg.lineWidth=3;cg.stroke();
+let tg=null,label='';let bd=1e9;VERSES.forEach(v=>{if(!has('collected',v.id)){const d=Math.hypot(v.x-P.x,v.y-P.y);if(d<bd){bd=d;tg=v}}});
+if(tg)label=Math.round(bd/10)+' steps to the nearest scroll';else if(!S.done){tg=HUB;bd=Math.hypot(HUB.x-P.x,HUB.y-P.y);label='Head to the Wheel at the Capitol'}else label='The trail is lit';
+$('#compassTxt').textContent=label;if(tg){const a=Math.atan2(tg.y-P.y,tg.x-P.x);cg.save();cg.translate(44,44);cg.rotate(a);cg.fillStyle='#f4b942';cg.beginPath();cg.moveTo(30,0);cg.lineTo(-12,-14);cg.lineTo(-4,0);cg.lineTo(-12,14);cg.closePath();cg.fill();cg.restore()}}
+function drawMini(){const k=300/W;mg.clearRect(0,0,300,230);mg.fillStyle='rgba(46,106,78,.55)';mg.fillRect(0,0,300,230);
+mg.strokeStyle='#3b97c8';mg.lineWidth=7;mg.beginPath();RIVER.forEach((q,i)=>i?mg.lineTo(q[0]*k,q[1]*k):mg.moveTo(q[0]*k,q[1]*k));mg.stroke();
+mg.strokeStyle='rgba(195,179,135,.8)';mg.lineWidth=4;ZONES.forEach(z=>{mg.beginPath();mg.moveTo(HUB.x*k,HUB.y*k);mg.lineTo(z.x*k,z.y*k);mg.stroke()});mg.beginPath();mg.ellipse(HUB.x*k,HUB.y*k,RIM.rx*k,RIM.ry*k,0,0,TAU);mg.stroke();
+mg.fillStyle='#f4b942';mg.beginPath();mg.arc(HUB.x*k,HUB.y*k,8,0,TAU);mg.fill();
+ZONES.forEach(z=>{mg.fillStyle='rgba(255,255,255,.9)';mg.beginPath();mg.arc(z.x*k,z.y*k,9,0,TAU);mg.fill()});
+VERSES.forEach(v=>{if(!has('collected',v.id)){mg.fillStyle='#ffd77a';mg.beginPath();mg.arc(v.x*k,v.y*k,3.6,0,TAU);mg.fill()}});
+mg.fillStyle='#fff';mg.strokeStyle='#0a1230';mg.lineWidth=3;mg.beginPath();mg.arc(P.x*k,P.y*k,6,0,TAU);mg.fill();mg.stroke()}
+// ---- hub finale ----
+function vcard(v,kick,note,acts){showModal('<div class="kick">'+kick+'</div><h2>'+v.ref+'</h2><p class="verse">“'+v.text+'”</p><p class="note">'+note+'</p>',acts)}
+function hubAct(){
+if(S.collected.length<16){ezraSay(['The Wheel needs every spoke lit before the hub makes sense. You have '+S.collected.length+' of 16 scrolls. Keep going!']);return}
+if(S.done){endCard(true);return}
+ezraSay(['You lit all four spokes. Now stand at the center. Everything on the Wheel turns around one person.'],()=>{
+vcard(HV.way,'The hub','Christ is the center. The Word, prayer, fellowship and witness all connect back to Him.',[{label:'Next',cls:'primary',fn:()=>{
+vcard(HV.light,'The light','This is the path you have been following all night.',[{label:'Hide it in my heart',cls:'primary',fn:()=>quiz(HV.light,rim)},{label:'Continue',fn:rim}])}}])})}
+function rim(){showModal('<div class="kick">The rim</div><h2>Obedience</h2><p class="verse">“'+HV.love.text+'”</p><p class="verse">“'+HV.doers.text+'”</p><p class="note">'+HV.love.ref+' and '+HV.doers.ref+'. The rim is the Wheel in motion: a life that does what Jesus says.</p>',
+[{label:'Next',cls:'primary',fn:()=>{const n=S.friends.length;
+ezraSay(['Walking with '+n+' friend'+(n===1?'':'s')+' behind you, you are living out 2 Timothy 2:2: pass on what you have heard to people who will pass it on.','Dawn is coming. Go on, look up.'],()=>{S.done=true;save();dirty=true;chime([523,659,784,1046,1318]);setTimeout(()=>endCard(false),1800)},'Look up')}}])}
+function endCard(again){showModal('<div class="kick">Sunrise over Des Moines</div><h2>The trail is lit</h2><p class="say">You collected '+S.collected.length+' scrolls, memorized '+S.memorized.length+' and walked with '+S.friends.length+' friends. The Navigators describe their calling as helping people know Christ, make Him known, and help others do the same. If you are new to Jesus or just curious, the best next step is a conversation with a friend, a pastor, or a Navigators staff member on a campus near you.</p><p class="small">A gift for Ezra Iliff, with love. Scripture: King James Version (public domain). Inspired by the history and Wheel illustration shared at navigators.org. Fan-made, not an official Navigators product. The map is stylized, and the friends on the trail are fictional.</p>',
+[{label:'Keep exploring',cls:'primary'},{label:'Play again',fn:reset}])}
+function reset(){S={collected:[],memorized:[],friends:[],zones:[],done:false,intro:true};save();P.x=1300;P.y=1090;hist.length=0;resetFollowers();followers[0].x=1260;followers[0].y=1100;curZone=null;dirty=true}
+// ---- input ----
+function interact(){if(modalOpen||!started)return;const t=nearest();if(t)t.act()}
+window.addEventListener('keydown',e=>{if(modalOpen)return;const k=e.key.length===1?e.key.toLowerCase():e.key;
+if(['ArrowLeft','ArrowRight','ArrowUp','ArrowDown',' '].includes(e.key))e.preventDefault();
+if(k==='e'||k===' '||k==='Enter'){interact();return}
+if(k==='j'&&started){journal();return}
+if(k==='m'){toggleSound();return}
+keys[k]=true;if(e.shiftKey)keys.Shift=true});
+window.addEventListener('keyup',e=>{const k=e.key.length===1?e.key.toLowerCase():e.key;keys[k]=false;if(e.key==='Shift')keys.Shift=false});
+window.addEventListener('blur',()=>{for(const k in keys)keys[k]=false});
+const joy=$('#joy'),knob=$('#knob');let jid=null;
+function jmove(e){const r=joy.getBoundingClientRect();const dx=e.clientX-(r.left+r.width/2),dy=e.clientY-(r.top+r.height/2),m=Math.hypot(dx,dy),R=r.width/2-8,k=m>R?R/m:1;knob.style.transform='translate('+dx*k+'px,'+dy*k+'px)';const n=Math.min(1,m/R);jv=n<.15?{x:0,y:0}:{x:dx/(m||1)*n,y:dy/(m||1)*n}}
+joy.addEventListener('pointerdown',e=>{jid=e.pointerId;joy.setPointerCapture(e.pointerId);jmove(e)});
+joy.addEventListener('pointermove',e=>{if(e.pointerId===jid)jmove(e)});
+const jend=e=>{if(e.pointerId===jid){jid=null;jv={x:0,y:0};knob.style.transform='translate(0,0)'}};
+joy.addEventListener('pointerup',jend);joy.addEventListener('pointercancel',jend);
+$('#act').addEventListener('pointerdown',e=>{e.preventDefault();interact()});
+if(window.matchMedia&&matchMedia('(pointer:coarse)').matches)$('#stage').classList.add('coarse');
+function toggleSound(){muted=!muted;$('#bSound').textContent=muted?'Sound off':'Sound on'}
+$('#bSound').onclick=toggleSound;$('#bJournal').onclick=()=>{if(started&&!modalOpen)journal()};$('#bHelp').onclick=()=>{if(!modalOpen)help()};
+// ---- title + loop ----
+function intro(){ezraSay(['Hey, welcome to Des Moines! I’m Ezra. Yes, the glasses are on purpose. I’ll be your guide tonight.','These roads are shaped like the Wheel Dawson Trotman drew in the 1930s: Christ at the hub, with the Word, prayer, fellowship and witnessing as spokes.','Four places, four spokes: Drake, DMACC, Gray’s Lake and Grand View. Collect Scripture scrolls, memorize what you find, and help the friends you meet. Every scroll lights the trail a little more.','Move with WASD, the arrows or the thumb stick, and press E or tap A near anything glowing. Ready? Let’s follow the light.'],()=>{S.intro=true;save()},'Let’s go')}
+function showTitle(){const cont=S.collected.length>0||S.done;
+showModal('<div class="title"><div class="kick">A trail through Des Moines</div><h1>The Wheel Road</h1><p class="tag">Walk the Wheel. Find Scripture. Follow the light to Jesus.</p><p class="small">A gift for Ezra Iliff. Fan-made, not an official product of The Navigators. The map is stylized and the friends on the trail are fictional.</p></div>',
+[{label:cont?'Continue':'Begin the trail',cls:'primary',fn:begin}].concat(cont?[{label:'Start over',fn:()=>{reset();begin()}}]:[]))}
+function begin(){started=true;resetFollowers();if(!S.intro)setTimeout(intro,300);else toast('<b>Ezra:</b> Welcome back. The trail is waiting.')}
+let last=performance.now();
+function frame(now){const dt=Math.min(.05,(now-last)/1000);last=now;time+=dt;
+if(!started){P.x=HUB.x+Math.cos(time*.15)*140;P.y=HUB.y+100+Math.sin(time*.15)*60}
+update(dt);render();
+if(dirty){drawWheel();stats();dirty=false}
+drawCompass();drawMini();
+const p=$('#prompt');const n=started&&!modalOpen?nearest():null;
+if(n){p.style.display='block';p.innerHTML='<kbd>'+($('#stage').classList.contains('coarse')?'A':'E')+'</kbd>'+n.label}else p.style.display='none';
+requestAnimationFrame(frame)}
+resetFollowers();drawWheel();stats();showTitle();requestAnimationFrame(frame);
+})();
+</script></html>
